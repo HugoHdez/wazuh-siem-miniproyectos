@@ -1,0 +1,23 @@
+# =============================================================================
+# SIEM lab — Snort rule chain coherente (kill-chain externo contra victim)
+# SIDs 1010101..1010105 (una etapa cada uno). rev:11
+# Narrativa:
+#   1. Recon      -> ping sweep            (ICMP echo)
+#   2. Scan       -> multi-port SYN        (22,80,445,3306,8080)
+#   3. Web probe  -> rutas sensibles       (/admin, /login, /.env, ...)
+#   4. Exploit    -> payload SQLi / LFI    (UNION SELECT, 1=1, ../, /etc/passwd)
+#   5. Exfil/C2   -> POST con UA de automatización (python-requests, sqlmap...)
+# Las etapas HTTP usan los modificadores http_* del preprocesador http_inspect
+# (requerido en Snort 2.9 para que el contenido case sobre la URI/método/header
+# normalizados en puertos HTTP_PORTS, que incluye 8080).
+# =============================================================================
+
+alert icmp any any -> $HOME_NET any (msg:"LAB Stage1 Reconnaissance: ICMP echo probe"; itype:8; icode:0; sid:1010101; rev:11; classtype:misc-activity; priority:3;)
+
+alert tcp any any -> $HOME_NET [22,80,445,3306,8080] (msg:"LAB Stage2 Service Discovery: SYN probe on well-known port"; flags:S,12; sid:1010102; rev:11; classtype:attempted-recon; priority:3;)
+
+alert tcp any any -> $HOME_NET $HTTP_PORTS (msg:"LAB Stage3 Initial Access: HTTP request to sensitive path"; flow:to_server,established; content:"/"; http_uri; depth:1; pcre:"/^\/(admin|login|phpmyadmin|wp-admin|\.env|\.git|config)/Ui"; sid:1010103; rev:11; classtype:web-application-attack; priority:2;)
+
+alert tcp any any -> $HOME_NET $HTTP_PORTS (msg:"LAB Stage4 Exploit attempt: SQLi or path-traversal payload in HTTP URI"; flow:to_server,established; pcre:"/(union[\s%+]+select|1=1|\.\.\/|\/etc\/passwd|%27|--[\s%+])/Ui"; sid:1010104; rev:11; classtype:web-application-attack; priority:1;)
+
+alert tcp any any -> $HOME_NET $HTTP_PORTS (msg:"LAB Stage5 Exfiltration/C2: HTTP POST with automation User-Agent"; flow:to_server,established; content:"POST"; http_method; pcre:"/(python-requests|sqlmap|curl\/|wget\/|Go-http-client|libwww-perl)/Hi"; sid:1010105; rev:11; classtype:trojan-activity; priority:1;)

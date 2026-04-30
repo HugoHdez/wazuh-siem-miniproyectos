@@ -1,0 +1,86 @@
+<!-- Local rules -->
+
+<!-- Copyright (C) 2015, Wazuh Inc. -->
+
+<group name="local,syslog,sshd,">
+  <rule id="100001" level="5">
+    <if_sid>5716</if_sid>
+    <srcip>1.1.1.1</srcip>
+    <description>sshd: authentication failed from IP 1.1.1.1.</description>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+</group>
+
+<group name="wannacry,pcap,tshark,network,">
+  <rule id="100200" level="3">
+    <decoded_as>tshark-wannacry</decoded_as>
+    <description>PCAP network event decoded from WannaCry capture</description>
+  </rule>
+
+  <rule id="100201" level="5">
+    <if_sid>100200</if_sid>
+    <dstport>445</dstport>
+    <field name="network.service">^SMB$</field>
+    <description>SMB traffic observed on TCP/445</description>
+    <group>smb,</group>
+  </rule>
+
+  <rule id="100202" level="4">
+    <if_sid>100200</if_sid>
+    <field name="network.service">^NetBIOS-</field>
+    <description>NetBIOS traffic observed around SMB discovery</description>
+    <group>netbios,discovery,</group>
+  </rule>
+
+  <rule id="100203" level="7">
+    <if_sid>100201</if_sid>
+    <field name="tcp.flags">^SYN$</field>
+    <description>SMB connection attempt to TCP/445</description>
+    <group>smb,connection_attempt,</group>
+  </rule>
+
+  <rule id="100204" level="8">
+    <if_sid>100201</if_sid>
+    <field name="tcp.flags">RST</field>
+    <description>SMB reset observed after TCP/445 activity</description>
+    <group>smb,failed_connection,</group>
+  </rule>
+
+  <rule id="100205" level="10" frequency="20" timeframe="60">
+    <if_matched_sid>100203</if_matched_sid>
+    <same_source_ip />
+    <description>Possible SMB scanning: repeated TCP/445 SYN attempts from same source</description>
+    <group>smb_scan,wannacry,eternalblue,</group>
+  </rule>
+
+  <rule id="100206" level="12" frequency="80" timeframe="120">
+    <if_matched_sid>100201</if_matched_sid>
+    <same_source_ip />
+    <description>Possible WannaCry lateral movement: high volume SMB traffic from same source</description>
+    <group>wannacry,eternalblue,lateral_movement,smb,</group>
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="100207" level="6">
+    <if_sid>100202</if_sid>
+    <field name="network.broadcast">^true$</field>
+    <description>Broadcast NetBIOS discovery traffic observed</description>
+    <group>netbios,discovery,broadcast,</group>
+  </rule>
+
+  <rule id="100208" level="10">
+    <if_sid>100200</if_sid>
+    <match>SAM LOGON</match>
+    <description>Domain account reconnaissance string observed in SMB/Netlogon payload</description>
+    <group>recon,wannacry,active_directory,</group>
+  </rule>
+
+  <rule id="100209" level="8">
+    <if_sid>100200</if_sid>
+    <match>user unknown</match>
+    <description>Failed Active Directory user enumeration string observed</description>
+    <group>recon,bruteforce,active_directory,</group>
+  </rule>
+</group>

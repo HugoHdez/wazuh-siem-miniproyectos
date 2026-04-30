@@ -1,0 +1,59 @@
+<!--
+  Correlación SIEM lab sobre alertas Snort (rule.id=20101 del decoder snort).
+  - 100360..100364: etiqueta por etapa (dedup 60s por regla)
+  - 100390: mismo origen, >=3 eventos etiqueta snort_lab_chain / 600s -> HIGH
+  - 100391: mismo origen, >=5 eventos etiqueta snort_lab_chain / 600s -> CRITICAL
+  SIDs Snort referenciados: 1010101..1010105 rev:11
+-->
+<group name="snort,ids,lab,">
+
+  <rule id="100360" level="5" ignore="60">
+    <if_sid>20101</if_sid>
+    <match>1:1010101:11</match>
+    <description>LAB kill-chain [1/5] Reconnaissance: ICMP echo probe detected</description>
+    <group>snort_lab_chain,attack.recon,</group>
+  </rule>
+
+  <rule id="100361" level="6" ignore="60">
+    <if_sid>20101</if_sid>
+    <match>1:1010102:11</match>
+    <description>LAB kill-chain [2/5] Service Discovery: SYN probe on well-known port</description>
+    <group>snort_lab_chain,attack.scan,</group>
+  </rule>
+
+  <rule id="100362" level="8" ignore="60">
+    <if_sid>20101</if_sid>
+    <match>1:1010103:11</match>
+    <description>LAB kill-chain [3/5] Initial Access: HTTP request to sensitive path</description>
+    <group>snort_lab_chain,attack.web_probe,</group>
+  </rule>
+
+  <rule id="100363" level="10" ignore="60">
+    <if_sid>20101</if_sid>
+    <match>1:1010104:11</match>
+    <description>LAB kill-chain [4/5] Exploit: SQLi or path-traversal payload in HTTP request</description>
+    <group>snort_lab_chain,attack.exploit,</group>
+  </rule>
+
+  <rule id="100364" level="11" ignore="60">
+    <if_sid>20101</if_sid>
+    <match>1:1010105:11</match>
+    <description>LAB kill-chain [5/5] Exfiltration/C2: HTTP POST with automation User-Agent</description>
+    <group>snort_lab_chain,attack.exfil,</group>
+  </rule>
+
+  <rule id="100390" level="12" frequency="3" timeframe="600">
+    <if_matched_group>snort_lab_chain</if_matched_group>
+    <same_source_ip />
+    <description>LAB HIGH severity: multi-stage Snort kill-chain correlated (same source, >=3 stages)</description>
+    <group>snort_lab_correlation,attack.killchain,</group>
+  </rule>
+
+  <rule id="100391" level="15" frequency="5" timeframe="600">
+    <if_matched_group>snort_lab_chain</if_matched_group>
+    <same_source_ip />
+    <description>LAB CRITICAL severity: full Snort kill-chain correlated from single source (>=5 stages)</description>
+    <group>snort_lab_correlation,attack.killchain,</group>
+  </rule>
+
+</group>
